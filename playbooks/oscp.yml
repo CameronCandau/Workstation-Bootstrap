@@ -59,6 +59,13 @@
         update: no
       loop: "{{ oscp_repos }}"
 
+    # ── Install OSCP-Automation scripts ────────────────────────────────────
+    - name: Install OSCP-Automation scripts via make
+      command:
+        cmd: make install PREFIX="{{ ansible_env.HOME }}/.local"
+        chdir: "{{ oscp_dir }}/OSCP-Automation"
+        creates: "{{ ansible_env.HOME }}/.local/bin/new-target"
+
     # ── vClip ──────────────────────────────────────────────────────────────
     - name: Install vClip via pipx
       command:
@@ -66,13 +73,6 @@
         creates: "{{ ansible_env.HOME }}/.local/bin/vclip"
 
     # ── Shell config (.bashrc) ─────────────────────────────────────────────
-    - name: Add OSCP-Automation/bin to PATH
-      lineinfile:
-        path: "{{ ansible_env.HOME }}/.bashrc"
-        line: 'export PATH="$PATH:{{ oscp_dir }}/OSCP-Automation/bin"'
-        regexp: 'OSCP-Automation/bin'
-        state: present
-
     - name: Source OSCP shellrc additions
       lineinfile:
         path: "{{ ansible_env.HOME }}/.bashrc"

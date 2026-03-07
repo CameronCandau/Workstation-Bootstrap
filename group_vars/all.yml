@@ -6,7 +6,7 @@
 cmdr_bin_dir: /usr/local/bin
 
 # Dotfiles repository URL
-dotfiles_repo: "https://github.com/Cam-Can-Do/dotfiles"
+dotfiles_repo: "https://github.com/CameronCandau/dotfiles"
 
 # WezTerm AppImage version to install
 # Update this when a new release is available
