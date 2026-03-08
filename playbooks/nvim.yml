@@ -2,8 +2,7 @@
 - name: Install Neovim
   hosts: all
   vars:
-    nvim_appimage: "{{ ansible_facts['env']['HOME'] }}/nvim-linux-x86_64.appimage"
-    nvim_symlink: "{{ ansible_facts['env']['HOME'] }}/.local/bin/nvim"
+    nvim_appimage: "{{ ansible_facts['env']['HOME'] }}/.local/bin/nvim-linux-x86_64.appimage"
   tasks:
     - name: Check for Neovim AppImage
       ansible.builtin.stat:
@@ -31,9 +30,3 @@
         dest: "{{ nvim_appimage }}"
         mode: '0755'
       when: not nvim_exists.stat.exists
-
-    - name: Symlink Neovim onto PATH
-      ansible.builtin.file:
-        src: "{{ nvim_appimage }}"
-        dest: "{{ nvim_symlink }}"
-        state: link

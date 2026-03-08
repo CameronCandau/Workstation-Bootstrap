@@ -2,8 +2,7 @@
 - name: WezTerm
   hosts: all
   vars:
-    wezterm_appimage: "{{ ansible_facts['env']['HOME'] }}/WezTerm.AppImage"
-    wezterm_symlink: "{{ ansible_facts['env']['HOME'] }}/.local/bin/wezterm"
+    wezterm_appimage: "{{ ansible_facts['env']['HOME'] }}/.local/bin/WezTerm.AppImage"
   tasks:
     - name: Check if WezTerm already installed
       stat:
@@ -24,9 +23,3 @@
         dest: "{{ wezterm_appimage }}"
         mode: '0755'
       when: not wezterm_stat.stat.exists
-
-    - name: Symlink WezTerm onto PATH
-      file:
-        src: "{{ wezterm_appimage }}"
-        dest: "{{ wezterm_symlink }}"
-        state: link
