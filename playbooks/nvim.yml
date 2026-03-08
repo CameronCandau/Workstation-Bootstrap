@@ -2,7 +2,7 @@
 - name: Install Neovim
   hosts: all
   vars:
-    nvim_appimage: "{{ ansible_facts['env']['HOME'] }}/.local/bin/nvim-linux-x86_64.appimage"
+    nvim_appimage: "{{ ansible_facts['env']['HOME'] }}/.local/bin/nvim"
   tasks:
     - name: Check for Neovim AppImage
       ansible.builtin.stat:
