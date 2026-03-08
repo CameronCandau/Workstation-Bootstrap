@@ -4,17 +4,11 @@
   vars:
     dotfiles_dir: "{{ ansible_facts['env']['HOME'] }}/dotfiles"
   tasks:
-    - name: Check if dotfiles repo already cloned
-      stat:
-        path: "{{ dotfiles_dir }}"
-      register: dotfiles_dir_stat
-
-    - name: Clone dotfiles repository
+    - name: Clone or update dotfiles repository
       git:
         repo: "{{ dotfiles_repo }}"
         dest: "{{ dotfiles_dir }}"
-        update: false
-      when: not dotfiles_dir_stat.stat.exists
+        update: true
       register: git_clone
 
     - name: Ensure GNU Stow installed

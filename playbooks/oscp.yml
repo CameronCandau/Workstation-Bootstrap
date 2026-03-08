@@ -52,11 +52,11 @@
         state: present
 
     # ── Clone repos ────────────────────────────────────────────────────────
-    - name: Clone OSCP repos
+    - name: Clone or update OSCP repos
       git:
         repo: "{{ item.repo }}"
         dest: "{{ oscp_dir }}/{{ item.name }}"
-        update: false
+        update: true
       loop: "{{ oscp_repos }}"
 
     # ── Install OSCP-Automation scripts ────────────────────────────────────
