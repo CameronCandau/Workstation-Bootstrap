@@ -4,13 +4,45 @@
   vars:
     dotfiles_dir: "{{ ansible_facts['env']['HOME'] }}/dotfiles"
   tasks:
-    - name: Clone or update dotfiles repository
+    - name: Check whether dotfiles repository exists
+      stat:
+        path: "{{ dotfiles_dir }}/.git"
+      register: dotfiles_git_dir
+
+    - name: Clone dotfiles repository
       git:
         repo: "{{ dotfiles_repo }}"
         dest: "{{ dotfiles_dir }}"
         update: true
         force: false
       register: git_clone
+      when: not dotfiles_git_dir.stat.exists
+
+    - name: Check dotfiles repository status
+      command:
+        cmd: git status --porcelain
+        chdir: "{{ dotfiles_dir }}"
+      register: dotfiles_status
+      changed_when: false
+      when: dotfiles_git_dir.stat.exists
+
+    - name: Update clean dotfiles repository
+      git:
+        repo: "{{ dotfiles_repo }}"
+        dest: "{{ dotfiles_dir }}"
+        update: true
+        force: false
+      register: git_update
+      when:
+        - dotfiles_git_dir.stat.exists
+        - dotfiles_status.stdout == ""
+
+    - name: Show dirty dotfiles warning
+      debug:
+        msg: "Skipping dotfiles update because local modifications exist in {{ dotfiles_dir }}. Commit, stash, or clean them before pulling updates."
+      when:
+        - dotfiles_git_dir.stat.exists
+        - dotfiles_status.stdout != ""
 
     - name: Ensure GNU Stow installed
       become: true
@@ -19,7 +51,10 @@
         state: present
 
     - name: Stow dotfiles
-      shell: |
-        cd {{ dotfiles_dir }}
-        stow --no-folding .
-      when: git_clone is defined and git_clone.changed
+      command:
+        cmd: stow --no-folding .
+        chdir: "{{ dotfiles_dir }}"
+      when:
+        - (git_clone is defined and git_clone.changed) or
+          (git_update is defined and git_update.changed) or
+          (dotfiles_git_dir.stat.exists and dotfiles_status.stdout != "")
