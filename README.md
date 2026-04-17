@@ -22,13 +22,17 @@ ansible-playbook kali_vm.yml -K
 | Playbook | What it installs |
 |---|---|
 | `kali_vm.yml` | **Default.** General utils + dev tools + desktop (i3, Brave, WezTerm, VSCode, fonts) + OSCP stack |
-| `playbooks/oscp.yml` | OSCP stack only (vClip, OSCP-Methodology, OSCP-Automation, direnv, tmux+TPM, penelope.py) |
+| `playbooks/oscp.yml` | OSCP stack only (core lab tooling, OSCP-Methodology, OSCP-Automation, direnv, tmux, penelope.py, pentest-check) |
 
 ## After Install
 
-**tmux plugins** — open tmux, then press `Ctrl+b Shift+I` to install plugins (tmux-logging, tmux-sensible).
+**tmux** — tmux is installed, but dotfiles own the tmux config. The OSCP playbook does not overwrite `~/.tmux.conf`.
 
-**OSCP workflow** — run `new-target <IP> [NAME]` to initialize a target workspace. `$IP` and `$TARGET_NAME` auto-export on `cd` via direnv. vClip is available as `vclip`.
+**OSCP workflow** — run `new-target <IP> [NAME]` to initialize a target workspace. `$IP` and `$TARGET_NAME` auto-export on `cd` via direnv.
+
+**Optional terminal logging** — run `term-log <target>` for a shell transcript, or use `Ctrl+a P` in tmux to toggle output logging for the current pane.
+
+**Pentest smoke test** — run `pentest-check` after provisioning to verify the main lab/exam commands are present (`nmap`, `autorecon`, `ffuf`, `netexec`, `evil-winrm`, Impacket helpers, and the local automation scripts).
 
 ## Standalone playbooks
 

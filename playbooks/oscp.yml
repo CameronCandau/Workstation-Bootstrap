@@ -3,31 +3,73 @@
 # Installs and configures the full OSCP workflow stack on Kali or Debian.
 #
 # What this installs:
+#   - OSCP baseline    (recon, web enum, cracking, AD, file transfer tools)
 #   - direnv           (auto-export $IP/$TARGET_NAME on cd into target dirs)
-#   - tmux + TPM       (session persistence; tmux-logging auto-logs pane output)
-#   - pipx             (isolated Python tool installs)
-#   - vClip            (rofi command picker, cloned from GitHub + installed via pipx)
-#   - OSCP-Methodology (command reference markdown files, feeds vClip)
+#   - tmux             (plain terminal multiplexing, no plugins required)
+#   - OSCP-Methodology (command reference markdown files)
 #   - OSCP-Automation  (workspace init scripts, scan automation)
 #   - penelope.py      (shell handler, ~/tools/penelope.py)
+#   - pentest-check    (quick command availability smoke test)
 #
 # Usage:
 #   ansible-playbook playbooks/oscp.yml -K
 #
-# Prerequisites:
-#   - rofi installed (included in desktop.yml / kali_vm.yml)
-
 - name: OSCP Lab Tooling
   hosts: all
   vars:
     tools_dir: "{{ ansible_facts['env']['HOME'] }}/tools"
+    local_bin_dir: "{{ ansible_facts['env']['HOME'] }}/.local/bin"
     oscp_repos:
       - name: OSCP-Methodology
         repo: "https://github.com/CameronCandau/OSCP-Methodology.git"
       - name: OSCP-Automation
         repo: "https://github.com/CameronCandau/OSCP-Automation.git"
-      - name: vClip
-        repo: "https://github.com/CameronCandau/vClip.git"
+    oscp_core_packages:
+      - direnv
+      - tmux
+      - xclip
+      - wl-clipboard
+      - nmap
+      - curl
+      - wget
+      - unzip
+      - zip
+      - jq
+      - git
+      - make
+      - python3
+      - python3-pip
+      - python3-venv
+      - netcat-openbsd
+      - socat
+      - rlwrap
+      - proxychains4
+      - ldap-utils
+      - smbclient
+      - samba-common-bin
+    oscp_optional_packages:
+      - exploitdb
+      - seclists
+      - wordlists
+      - autorecon
+      - ffuf
+      - feroxbuster
+      - gobuster
+      - nikto
+      - whatweb
+      - hydra
+      - john
+      - hashcat
+      - cewl
+      - impacket-scripts
+      - evil-winrm
+      - netexec
+      - crackmapexec
+      - kerbrute
+      - chisel
+      - ligolo-ng
+      - freerdp3-x11
+      - freerdp2-x11
 
   tasks:
     # ── Directories ────────────────────────────────────────────────────────
@@ -39,17 +81,42 @@
       loop:
         - "{{ oscp_dir }}"
         - "{{ tools_dir }}"
-        - "{{ ansible_facts['env']['HOME'] }}/oscp/logs"
+        - "{{ local_bin_dir }}"
+        - "{{ ansible_facts['env']['HOME'] }}/logs"
 
     # ── System packages ────────────────────────────────────────────────────
-    - name: Install OSCP tooling packages
+    - name: Update apt cache for OSCP packages
       become: true
       apt:
-        name:
-          - direnv
-          - tmux
-          - pipx
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install core OSCP tooling packages
+      become: true
+      apt:
+        name: "{{ oscp_core_packages }}"
         state: present
+
+    - name: Check optional OSCP package availability
+      command: "apt-cache show {{ item }}"
+      loop: "{{ oscp_optional_packages }}"
+      register: oscp_optional_package_checks
+      changed_when: false
+      failed_when: false
+
+    - name: Install optional OSCP packages available in APT
+      become: true
+      apt:
+        name: "{{ item.item }}"
+        state: present
+      loop: "{{ oscp_optional_package_checks.results }}"
+      when: item.rc == 0
+
+    - name: Show optional OSCP packages not found in configured APT repos
+      debug:
+        msg: "Optional OSCP package not available from APT: {{ item.item }}"
+      loop: "{{ oscp_optional_package_checks.results }}"
+      when: item.rc != 0
 
     # ── Clone repos ────────────────────────────────────────────────────────
     - name: Clone or update OSCP repos
@@ -64,42 +131,14 @@
       command:
         cmd: make install PREFIX="{{ ansible_facts['env']['HOME'] }}/.local"
         chdir: "{{ oscp_dir }}/OSCP-Automation"
-        creates: "{{ ansible_facts['env']['HOME'] }}/.local/bin/new-target"
-
-    # ── vClip ──────────────────────────────────────────────────────────────
-    - name: Install vClip via pipx
-      command:
-        cmd: pipx install "{{ oscp_dir }}/vClip"
-        creates: "{{ ansible_facts['env']['HOME'] }}/.local/bin/vclip"
 
     # ── Shell config (.bashrc) ─────────────────────────────────────────────
-    - name: Source OSCP shellrc additions
-      lineinfile:
-        path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
-        line: 'source {{ oscp_dir }}/OSCP-Automation/config/shellrc-additions.sh'
-        regexp: 'shellrc-additions'
-        state: present
-
     - name: Add direnv hook to .bashrc
       lineinfile:
         path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
         line: 'eval "$(direnv hook bash)"'
         regexp: 'direnv hook bash'
         state: present
-
-    # ── tmux ───────────────────────────────────────────────────────────────
-    - name: Install tmux.conf
-      copy:
-        src: "{{ oscp_dir }}/OSCP-Automation/config/tmux.conf"
-        dest: "{{ ansible_facts['env']['HOME'] }}/.tmux.conf"
-        remote_src: true
-        force: false
-
-    - name: Install TPM (tmux plugin manager)
-      git:
-        repo: "https://github.com/tmux-plugins/tpm"
-        dest: "{{ ansible_facts['env']['HOME'] }}/.tmux/plugins/tpm"
-        update: false
 
     # ── Penelope shell handler ─────────────────────────────────────────────
     - name: Download penelope.py
@@ -109,35 +148,91 @@
         mode: '0755'
         force: false
 
-    # ── vClip config ───────────────────────────────────────────────────────
-    - name: Ensure vClip config directory exists
+    # ── Smoke test helper ──────────────────────────────────────────────────
+    - name: Remove old smoke test command names
       file:
-        path: "{{ ansible_facts['env']['HOME'] }}/.config/vclip"
-        state: directory
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ local_bin_dir }}/oscp-doctor"
+        - "{{ local_bin_dir }}/pentest-doctor"
 
-    - name: Create vClip user config (sets source directory)
+    - name: Install pentest-check command
       copy:
-        dest: "{{ ansible_facts['env']['HOME'] }}/.config/vclip/config.yaml"
-        force: false
+        dest: "{{ local_bin_dir }}/pentest-check"
+        mode: '0755'
         content: |
-          sources:
-            directories:
-              - "{{ oscp_dir }}/OSCP-Methodology"
-            recursive: true
-            file_patterns:
-              - "*.md"
-              - "*.markdown"
+          #!/usr/bin/env bash
+          set -u
 
-          rofi:
-            use_markup: true
-            max_lines: 15
-            prompt: "Commands"
-            window_width: 60
-            element_height: 2
+          missing=0
 
-          cache:
-            enabled: true
+          check() {
+            local cmd="$1"
+            if command -v "$cmd" >/dev/null 2>&1; then
+              printf '[ok]      %s\n' "$cmd"
+            else
+              printf '[missing] %s\n' "$cmd"
+              missing=1
+            fi
+          }
 
-          variables:
-            # LHOST: "10.10.14.5"
-            # WORDLIST: "/usr/share/wordlists/rockyou.txt"
+          check_any() {
+            local label="$1"
+            shift
+            local candidate
+            for candidate in "$@"; do
+              if command -v "$candidate" >/dev/null 2>&1; then
+                printf '[ok]      %s (%s)\n' "$label" "$candidate"
+                return 0
+              fi
+            done
+            printf '[missing] %s\n' "$label"
+            missing=1
+          }
+
+          echo 'Pentest command smoke test'
+          echo
+
+          check nmap
+          check autorecon
+          check ffuf
+          check feroxbuster
+          check gobuster
+          check searchsploit
+          check netexec
+          check evil-winrm
+          check ldapsearch
+          check smbclient
+          check hydra
+          check john
+          check hashcat
+          check socat
+          check proxychains4
+          check tmux
+          check direnv
+          check new-target
+          check scan
+          check parse-ports
+          check_any GetNPUsers GetNPUsers.py impacket-GetNPUsers
+          check_any secretsdump secretsdump.py impacket-secretsdump
+          check_any psexec psexec.py impacket-psexec
+
+          echo
+          if [ "$missing" -eq 0 ]; then
+            echo '[+] Pentest tooling baseline looks ready.'
+          else
+            echo '[!] Some tools are missing. Install them before relying on this machine for timed practice.'
+          fi
+
+          exit "$missing"
+
+    - name: Run pentest command smoke test
+      command: "{{ local_bin_dir }}/pentest-check"
+      register: pentest_check
+      changed_when: false
+      failed_when: false
+
+    - name: Show pentest command smoke test output
+      debug:
+        var: pentest_check.stdout_lines

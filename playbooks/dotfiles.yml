@@ -9,7 +9,7 @@
         repo: "{{ dotfiles_repo }}"
         dest: "{{ dotfiles_dir }}"
         update: true
-        force: true
+        force: false
       register: git_clone
 
     - name: Ensure GNU Stow installed
