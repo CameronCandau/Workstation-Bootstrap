@@ -22,13 +22,17 @@ ansible-playbook kali_vm.yml -K
 | Playbook | What it installs |
 |---|---|
 | `kali_vm.yml` | **Default.** General utils + dev tools + desktop (i3, Brave, WezTerm, VSCode, fonts) + OSCP stack |
-| `playbooks/oscp.yml` | OSCP stack only (core lab tooling, OSCP-Methodology, OSCP-Automation, direnv, tmux, penelope.py, pentest-check) |
+| `playbooks/oscp.yml` | OSCP stack only (core lab tooling, OSCP-Methodology, OSCP-Automation, direnv, tmux, payload folders, Penelope, pentest-check) |
 
 ## After Install
 
 **tmux** — tmux is installed, but dotfiles own the tmux config. The OSCP playbook does not overwrite `~/.tmux.conf`.
 
 **OSCP workflow** — run `new-target <IP> [NAME]` to initialize a target workspace. `$IP` and `$TARGET_NAME` auto-export on `cd` via direnv.
+
+**Payload serving** — run `refresh-payloads` to populate a small curated cache under `~/tools/payloads/{linux,windows}`, then run `payload-server linux` or `payload-server windows 8000 443` from Kali. The wrapper uses a typo-tolerant fuzzy HTTP server by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
+
+**Shell handling** — Penelope is installed with `pipx` when available, with `~/tools/penelope.py` kept as a fallback.
 
 **Optional terminal logging** — run `term-log <target>` for a shell transcript, or use `Ctrl+a P` in tmux to toggle output logging for the current pane.
 

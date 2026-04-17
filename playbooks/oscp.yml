@@ -8,7 +8,8 @@
 #   - tmux             (plain terminal multiplexing, no plugins required)
 #   - OSCP-Methodology (command reference markdown files)
 #   - OSCP-Automation  (workspace init scripts, scan automation)
-#   - penelope.py      (shell handler, ~/tools/penelope.py)
+#   - payload folders   (generic linux/windows payload staging tree)
+#   - penelope         (shell handler via pipx, plus ~/tools/penelope.py fallback)
 #   - pentest-check    (quick command availability smoke test)
 #
 # Usage:
@@ -37,9 +38,11 @@
       - jq
       - git
       - make
+      - tree
       - python3
       - python3-pip
       - python3-venv
+      - pipx
       - netcat-openbsd
       - socat
       - rlwrap
@@ -65,9 +68,11 @@
       - evil-winrm
       - netexec
       - crackmapexec
+      - responder
       - kerbrute
       - chisel
       - ligolo-ng
+      - remmina
       - freerdp3-x11
       - freerdp2-x11
 
@@ -81,6 +86,12 @@
       loop:
         - "{{ oscp_dir }}"
         - "{{ tools_dir }}"
+        - "{{ tools_dir }}/payloads"
+        - "{{ tools_dir }}/payloads/linux"
+        - "{{ tools_dir }}/payloads/windows"
+        - "{{ tools_dir }}/payloads/windows/bin"
+        - "{{ tools_dir }}/payloads/windows/scripts"
+        - "{{ tools_dir }}/payloads/windows/webshells"
         - "{{ local_bin_dir }}"
         - "{{ ansible_facts['env']['HOME'] }}/logs"
 
@@ -118,6 +129,32 @@
       loop: "{{ oscp_optional_package_checks.results }}"
       when: item.rc != 0
 
+    - name: Install updog HTTP file server with pipx
+      command: pipx install updog
+      args:
+        creates: "{{ local_bin_dir }}/updog"
+      register: updog_pipx_install
+      changed_when: updog_pipx_install.rc == 0
+      failed_when: false
+
+    - name: Show updog install warning
+      debug:
+        msg: "updog was not installed with pipx; payload-server will use its built-in fuzzy HTTP server."
+      when: updog_pipx_install.rc is defined and updog_pipx_install.rc != 0
+
+    - name: Install Penelope shell handler with pipx
+      command: pipx install penelope-shell-handler
+      args:
+        creates: "{{ local_bin_dir }}/penelope"
+      register: penelope_pipx_install
+      changed_when: penelope_pipx_install.rc == 0
+      failed_when: false
+
+    - name: Show Penelope install warning
+      debug:
+        msg: "Penelope was not installed with pipx; the playbook will keep ~/tools/penelope.py as a fallback."
+      when: penelope_pipx_install.rc is defined and penelope_pipx_install.rc != 0
+
     # ── Clone repos ────────────────────────────────────────────────────────
     - name: Clone or update OSCP repos
       git:
@@ -147,6 +184,12 @@
         dest: "{{ tools_dir }}/penelope.py"
         mode: '0755'
         force: false
+
+    - name: Link penelope.py fallback into local bin
+      file:
+        src: "{{ tools_dir }}/penelope.py"
+        dest: "{{ local_bin_dir }}/penelope.py"
+        state: link
 
     # ── Smoke test helper ──────────────────────────────────────────────────
     - name: Remove old smoke test command names
@@ -214,6 +257,11 @@
           check new-target
           check scan
           check parse-ports
+          check payload-server
+          check refresh-payloads
+          check responder
+          check remmina
+          check_any penelope penelope penelope.py
           check_any GetNPUsers GetNPUsers.py impacket-GetNPUsers
           check_any secretsdump secretsdump.py impacket-secretsdump
           check_any psexec psexec.py impacket-psexec
