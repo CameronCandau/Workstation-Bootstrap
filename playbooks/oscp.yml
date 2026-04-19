@@ -194,14 +194,6 @@
         state: link
 
     # ── Smoke test helper ──────────────────────────────────────────────────
-    - name: Remove old smoke test command names
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "{{ local_bin_dir }}/oscp-doctor"
-        - "{{ local_bin_dir }}/pentest-doctor"
-
     - name: Install pentest-check command
       copy:
         dest: "{{ local_bin_dir }}/pentest-check"
