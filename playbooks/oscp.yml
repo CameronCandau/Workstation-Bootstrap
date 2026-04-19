@@ -173,6 +173,8 @@
     - name: Add direnv hook to .bashrc
       lineinfile:
         path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
+        create: true
+        mode: '0644'
         line: 'eval "$(direnv hook bash)"'
         regexp: 'direnv hook bash'
         state: present
