@@ -169,7 +169,7 @@
         cmd: make install PREFIX="{{ ansible_facts['env']['HOME'] }}/.local"
         chdir: "{{ oscp_dir }}/OSCP-Automation"
 
-    # ── Shell config (.bashrc) ─────────────────────────────────────────────
+    # ── Shell config (bash/zsh) ────────────────────────────────────────────
     - name: Add direnv hook to .bashrc
       lineinfile:
         path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
@@ -177,6 +177,15 @@
         mode: '0644'
         line: 'eval "$(direnv hook bash)"'
         regexp: 'direnv hook bash'
+        state: present
+
+    - name: Add direnv hook to .zshrc
+      lineinfile:
+        path: "{{ ansible_facts['env']['HOME'] }}/.zshrc"
+        create: true
+        mode: '0644'
+        line: 'eval "$(direnv hook zsh)"'
+        regexp: 'direnv hook zsh'
         state: present
 
     # ── Penelope shell handler ─────────────────────────────────────────────

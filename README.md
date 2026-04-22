@@ -28,7 +28,7 @@ ansible-playbook kali_vm.yml -K
 
 **tmux** — tmux is installed, but dotfiles own the tmux config. The OSCP playbook does not overwrite `~/.tmux.conf`.
 
-**OSCP workflow** — run `new-target <IP> [NAME]` to initialize a target workspace. `$IP` and `$TARGET_NAME` auto-export on `cd` via direnv.
+**OSCP workflow** — run `new-target <IP> [NAME]` to initialize a target workspace. `$IP` and `$TARGET_NAME` auto-export on `cd` via direnv, with shell hooks added for both bash and zsh.
 
 **Payload serving** — run `refresh-payloads` to populate a small curated cache under `~/tools/payloads/{linux,windows}`, then run `payload-server linux` or `payload-server windows 8000 443` from Kali. The wrapper uses a typo-tolerant fuzzy HTTP server by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
 
