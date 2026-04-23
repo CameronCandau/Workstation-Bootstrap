@@ -170,6 +170,15 @@
         chdir: "{{ oscp_dir }}/OSCP-Automation"
 
     # ── Shell config (bash/zsh) ────────────────────────────────────────────
+    - name: Add ~/.local/bin to .bashrc PATH
+      lineinfile:
+        path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
+        create: true
+        mode: '0644'
+        line: 'export PATH="$HOME/.local/bin:$PATH"'
+        regexp: '^\s*export PATH="\$HOME/\.local/bin:\$PATH"$'
+        state: present
+
     - name: Add direnv hook to .bashrc
       lineinfile:
         path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
@@ -177,6 +186,27 @@
         mode: '0644'
         line: 'eval "$(direnv hook bash)"'
         regexp: 'direnv hook bash'
+        state: present
+
+    - name: Add bash history tuning
+      blockinfile:
+        path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
+        create: true
+        mode: '0644'
+        marker: "# {mark} ANSIBLE MANAGED BASH HISTORY"
+        block: |
+          HISTSIZE=50000
+          HISTFILESIZE=100000
+          HISTCONTROL=ignoreboth:erasedups
+          PROMPT_COMMAND='history -a; history -n'
+
+    - name: Add ~/.local/bin to .zshrc PATH
+      lineinfile:
+        path: "{{ ansible_facts['env']['HOME'] }}/.zshrc"
+        create: true
+        mode: '0644'
+        line: 'export PATH="$HOME/.local/bin:$PATH"'
+        regexp: '^\s*export PATH="\$HOME/\.local/bin:\$PATH"$'
         state: present
 
     - name: Add direnv hook to .zshrc
@@ -187,6 +217,22 @@
         line: 'eval "$(direnv hook zsh)"'
         regexp: 'direnv hook zsh'
         state: present
+
+    - name: Add zsh history tuning
+      blockinfile:
+        path: "{{ ansible_facts['env']['HOME'] }}/.zshrc"
+        create: true
+        mode: '0644'
+        marker: "# {mark} ANSIBLE MANAGED ZSH HISTORY"
+        block: |
+          HISTFILE="$HOME/.zsh_history"
+          HISTSIZE=50000
+          SAVEHIST=50000
+          setopt append_history
+          setopt inc_append_history
+          setopt hist_ignore_dups
+          setopt hist_ignore_space
+          setopt hist_find_no_dups
 
     # ── Penelope shell handler ─────────────────────────────────────────────
     - name: Download penelope.py
