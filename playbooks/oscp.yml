@@ -170,6 +170,24 @@
         chdir: "{{ oscp_dir }}/OSCP-Automation"
 
     # ── Shell config (bash/zsh) ────────────────────────────────────────────
+    - name: Add ~/.local/bin to .profile PATH
+      lineinfile:
+        path: "{{ ansible_facts['env']['HOME'] }}/.profile"
+        create: true
+        mode: '0644'
+        line: 'export PATH="$HOME/.local/bin:$PATH"'
+        regexp: '^\s*export PATH="\$HOME/\.local/bin:\$PATH"$'
+        state: present
+
+    - name: Add ~/.local/bin to .zprofile PATH
+      lineinfile:
+        path: "{{ ansible_facts['env']['HOME'] }}/.zprofile"
+        create: true
+        mode: '0644'
+        line: 'export PATH="$HOME/.local/bin:$PATH"'
+        regexp: '^\s*export PATH="\$HOME/\.local/bin:\$PATH"$'
+        state: present
+
     - name: Add ~/.local/bin to .bashrc PATH
       lineinfile:
         path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
