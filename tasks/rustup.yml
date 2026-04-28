@@ -1,0 +1,60 @@
+- name: Ensure cargo bin directory exists
+  file:
+    path: "{{ cargo_bin_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Check for rustup
+  stat:
+    path: "{{ rustup_home }}/bin/rustup"
+  register: rustup_exists
+
+- name: Download rustup installer
+  get_url:
+    url: "https://sh.rustup.rs"
+    dest: "{{ ansible_facts['env']['HOME'] }}/.cache/rustup-init.sh"
+    mode: '0755'
+  when: not rustup_exists.stat.exists
+
+- name: Install rustup toolchain
+  command:
+    argv:
+      - sh
+      - "{{ ansible_facts['env']['HOME'] }}/.cache/rustup-init.sh"
+      - -y
+      - --profile
+      - "{{ rustup_profile }}"
+      - --default-toolchain
+      - "{{ rustup_toolchain }}"
+  environment:
+    CARGO_HOME: "{{ rustup_home }}"
+    RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
+  when: not rustup_exists.stat.exists
+
+- name: Ensure cargo env loader is sourced from .profile
+  lineinfile:
+    path: "{{ ansible_facts['env']['HOME'] }}/.profile"
+    create: true
+    mode: '0644'
+    line: '. "$HOME/.cargo/env"'
+    regexp: '^\.\s+"\$HOME/\.cargo/env"$'
+    state: present
+
+- name: Ensure cargo env loader is sourced from .bashrc
+  lineinfile:
+    path: "{{ ansible_facts['env']['HOME'] }}/.bashrc"
+    create: true
+    mode: '0644'
+    line: '. "$HOME/.cargo/env"'
+    regexp: '^\.\s+"\$HOME/\.cargo/env"$'
+    state: present
+
+- name: Ensure cargo env loader is sourced from .zshrc
+  lineinfile:
+    path: "{{ ansible_facts['env']['HOME'] }}/.zshrc"
+    create: true
+    mode: '0644'
+    line: '. "$HOME/.cargo/env"'
+    regexp: '^\.\s+"\$HOME/\.cargo/env"$'
+    state: present
+

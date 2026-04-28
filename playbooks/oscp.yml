@@ -8,6 +8,9 @@
 #   - tmux             (plain terminal multiplexing, no plugins required)
 #   - OSCP-Methodology (command reference markdown files)
 #   - OSCP-Automation  (workspace init scripts, scan automation)
+#   - artifact-catalog  (cargo-installed locker CLI plus user catalog config)
+#   - payload-server    (pipx-installed payload transfer helper)
+#   - opindex           (pipx-installed command-note indexer)
 #   - payload folders   (generic linux/windows payload staging tree)
 #   - penelope         (shell handler via pipx, plus ~/tools/penelope.py fallback)
 #   - pentest-check    (quick command availability smoke test)
@@ -20,6 +23,7 @@
   vars:
     tools_dir: "{{ ansible_facts['env']['HOME'] }}/tools"
     local_bin_dir: "{{ ansible_facts['env']['HOME'] }}/.local/bin"
+    artifact_catalog_config_dir: "{{ ansible_facts['env']['HOME'] }}/.config/artifact-catalog"
     oscp_repos:
       - name: OSCP-Methodology
         repo: "https://github.com/CameronCandau/OSCP-Methodology.git"
@@ -86,14 +90,21 @@
       loop:
         - "{{ oscp_dir }}"
         - "{{ tools_dir }}"
-        - "{{ tools_dir }}/payloads"
-        - "{{ tools_dir }}/payloads/linux"
-        - "{{ tools_dir }}/payloads/windows"
-        - "{{ tools_dir }}/payloads/windows/bin"
-        - "{{ tools_dir }}/payloads/windows/scripts"
-        - "{{ tools_dir }}/payloads/windows/webshells"
+        - "{{ payloads_dir }}"
+        - "{{ payloads_dir }}/linux"
+        - "{{ payloads_dir }}/windows"
+        - "{{ payloads_dir }}/windows/bin"
+        - "{{ payloads_dir }}/windows/scripts"
+        - "{{ payloads_dir }}/windows/webshells"
         - "{{ local_bin_dir }}"
         - "{{ ansible_facts['env']['HOME'] }}/logs"
+        - "{{ ansible_facts['env']['HOME'] }}/.cache"
+        - "{{ artifact_catalog_config_dir }}"
+        - "{{ artifact_catalog_data_dir }}"
+        - "{{ artifact_catalog_data_dir }}/manifests"
+        - "{{ artifact_catalog_data_dir }}/checksums"
+        - "{{ artifact_catalog_data_dir }}/staging"
+        - "{{ artifact_catalog_data_dir }}/staging/release-assets"
 
     # ── System packages ────────────────────────────────────────────────────
     - name: Update apt cache for OSCP packages
@@ -129,6 +140,9 @@
       loop: "{{ oscp_optional_package_checks.results }}"
       when: item.rc != 0
 
+    - name: Install rustup and cargo
+      include_tasks: ../tasks/rustup.yml
+
     - name: Install updog HTTP file server with pipx
       command: pipx install updog
       args:
@@ -154,6 +168,91 @@
       debug:
         msg: "Penelope was not installed with pipx; the playbook will keep ~/tools/penelope.py as a fallback."
       when: penelope_pipx_install.rc is defined and penelope_pipx_install.rc != 0
+
+    - name: Check whether payload-server is already installed with pipx
+      stat:
+        path: "{{ local_bin_dir }}/payload-server"
+      register: payload_server_exists
+
+    - name: Install payload-server with pipx
+      command: pipx install payload-server
+      when: not payload_server_exists.stat.exists
+
+    - name: Upgrade payload-server with pipx
+      command: pipx upgrade payload-server
+      register: payload_server_upgrade
+      changed_when: "'upgraded package' in payload_server_upgrade.stdout or 'upgraded package' in payload_server_upgrade.stderr"
+      when: payload_server_exists.stat.exists
+
+    - name: Check whether opindex is already installed with pipx
+      stat:
+        path: "{{ local_bin_dir }}/opindex"
+      register: opindex_exists
+
+    - name: Install opindex with pipx
+      command: pipx install opindex
+      when: not opindex_exists.stat.exists
+
+    - name: Upgrade opindex with pipx
+      command: pipx upgrade opindex
+      register: opindex_upgrade
+      changed_when: "'upgraded package' in opindex_upgrade.stdout or 'upgraded package' in opindex_upgrade.stderr"
+      when: opindex_exists.stat.exists
+
+    - name: Install artifact-catalog with cargo
+      command:
+        argv:
+          - "{{ cargo_bin_dir }}/cargo"
+          - install
+          - artifact-catalog
+          - --locked
+      environment:
+        CARGO_HOME: "{{ rustup_home }}"
+        RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
+
+    - name: Write artifact-catalog user config
+      copy:
+        dest: "{{ artifact_catalog_config_dir }}/config.yaml"
+        mode: '0644'
+        content: |
+          {
+            "catalog_root": "{{ artifact_catalog_data_dir }}",
+            "payloads_dir": "{{ payloads_dir }}",
+            "default_backend": "github-releases"
+          }
+
+    - name: Check whether artifact-catalog data root is initialized
+      stat:
+        path: "{{ artifact_catalog_data_dir }}/manifests/artifacts.yaml"
+      register: artifact_catalog_initialized
+
+    - name: Initialize artifact-catalog user data root
+      command:
+        argv:
+          - "{{ cargo_bin_dir }}/locker"
+          - init
+      environment:
+        XDG_CONFIG_HOME: "{{ ansible_facts['env']['HOME'] }}/.config"
+        CARGO_HOME: "{{ rustup_home }}"
+        RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
+      when: not artifact_catalog_initialized.stat.exists
+
+    - name: Seed artifact-catalog data repo README
+      copy:
+        dest: "{{ artifact_catalog_data_dir }}/README.md"
+        mode: '0644'
+        force: false
+        content: |
+          # artifact-catalog-data
+
+          User-side manifests, checksums, and staged release assets for `artifact-catalog`.
+
+          This directory is intended to be a separate Git repository from the `artifact-catalog`
+          application source so the software and your catalog contents stay clearly separated.
+
+          The default backend remains GitHub Releases. If you later move your catalog mirror to
+          AWS Public ECR, set `default_backend` to `oci-registry` and add `oci_repository` in
+          `~/.config/artifact-catalog/config.yaml` instead of storing secrets here.
 
     # ── Clone repos ────────────────────────────────────────────────────────
     - name: Clone or update OSCP repos
@@ -321,6 +420,8 @@
           check proxychains4
           check tmux
           check direnv
+          check locker
+          check opindex
           check new-target
           check scan
           check parse-ports

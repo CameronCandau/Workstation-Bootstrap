@@ -14,3 +14,13 @@ wezterm_version: "20240203-110809-5046fc22"
 
 # OSCP repos clone location
 oscp_dir: "{{ ansible_facts['env']['HOME'] }}/projects/personal/oscp"
+
+# Rust / cargo defaults
+rustup_home: "{{ ansible_facts['env']['HOME'] }}/.cargo"
+cargo_bin_dir: "{{ rustup_home }}/bin"
+rustup_toolchain: stable
+rustup_profile: minimal
+
+# Published pentest tooling defaults
+payloads_dir: "{{ ansible_facts['env']['HOME'] }}/tools/payloads"
+artifact_catalog_data_dir: "{{ ansible_facts['env']['HOME'] }}/projects/personal/catalogs/artifact-catalog-content"

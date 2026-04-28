@@ -10,6 +10,7 @@
 
 - import_playbook: general.yml
 - import_playbook: dev_minimal.yml
+- import_playbook: playbooks/rust.yml
 - import_playbook: desktop.yml
 - import_playbook: playbooks/nvim.yml
 - import_playbook: playbooks/oscp.yml

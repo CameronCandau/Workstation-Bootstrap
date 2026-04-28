@@ -21,8 +21,9 @@ ansible-playbook kali_vm.yml -K
 
 | Playbook | What it installs |
 |---|---|
-| `kali_vm.yml` | **Default.** General utils + dev tools + desktop (i3, Brave, WezTerm, VSCode, fonts) + OSCP stack |
-| `playbooks/oscp.yml` | OSCP stack only (core lab tooling, OSCP-Methodology, OSCP-Automation, direnv, tmux, payload folders, Penelope, pentest-check) |
+| `kali_vm.yml` | **Default.** General utils + dev tools + Rust toolchain + desktop (i3, Brave, WezTerm, VSCode, fonts) + OSCP stack |
+| `playbooks/oscp.yml` | OSCP stack only (core lab tooling, OSCP-Methodology, OSCP-Automation, artifact-catalog, payload-server, opindex, direnv, tmux, payload folders, Penelope, pentest-check) |
+| `playbooks/rust.yml` | Rustup-managed Rust toolchain for user-scoped Cargo installs |
 
 ## After Install
 
@@ -32,17 +33,24 @@ ansible-playbook kali_vm.yml -K
 
 **Payload serving** — run `refresh-payloads` to populate a small curated cache under `~/tools/payloads/{linux,windows}`, then run `payload-server linux` or `payload-server windows 8000 443` from Kali. The wrapper uses a typo-tolerant fuzzy HTTP server by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
 
+**Artifact catalog** — `locker` is installed from crates.io and configured through `~/.config/artifact-catalog/config.yaml` to use a separate user-data root at `~/projects/personal/catalogs/artifact-catalog-data`. Keep that directory in its own Git repo if you want versioned catalog contents separate from the application source. The default backend stays `github-releases`; when you are ready to use AWS Public ECR, add `oci_repository` and switch `default_backend` to `oci-registry` in the same config file.
+
+**Command notes** — `opindex` is installed from PyPI and reads your dotfiles-managed config from `~/.config/opindex/config.yaml`.
+
 **Shell handling** — Penelope is installed with `pipx` when available, with `~/tools/penelope.py` kept as a fallback.
 
 **Optional terminal logging** — run `term-log <target>` for a shell transcript, or use `Ctrl+a P` in tmux to toggle output logging for the current pane.
 
-**Pentest smoke test** — run `pentest-check` after provisioning to verify the main lab/exam commands are present (`nmap`, `autorecon`, `ffuf`, `netexec`, `evil-winrm`, Impacket helpers, and the local automation scripts).
+**Pentest smoke test** — run `pentest-check` after provisioning to verify the main lab/exam commands are present (`nmap`, `autorecon`, `ffuf`, `netexec`, `evil-winrm`, `locker`, `payload-server`, `opindex`, Impacket helpers, and the local automation scripts).
 
 ## Standalone playbooks
 
 ```bash
 # OSCP stack only
 ansible-playbook playbooks/oscp.yml -K
+
+# Rust toolchain only
+ansible-playbook playbooks/rust.yml -K
 
 # Single app
 ansible-playbook playbooks/brave.yml -K

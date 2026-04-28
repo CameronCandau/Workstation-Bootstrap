@@ -1,0 +1,7 @@
+---
+- hosts: all
+  name: Install Rust toolchain
+  tasks:
+    - name: Install rustup and cargo
+      include_tasks: ../tasks/rustup.yml
+
