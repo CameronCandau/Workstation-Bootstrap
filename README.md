@@ -31,9 +31,17 @@ ansible-playbook kali_vm.yml -K
 
 **OSCP workflow** — run `new-target <IP> [NAME]` to initialize a target workspace. `$IP` and `$TARGET_NAME` auto-export on `cd` via direnv, with shell hooks added for both bash and zsh.
 
-**Payload serving** — run `refresh-payloads` to populate a small curated cache under `~/tools/payloads/{linux,windows}`, then run `payload-server linux` or `payload-server windows 8000 443` from Kali. The wrapper uses a typo-tolerant fuzzy HTTP server by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
+**Day 1** — after the playbook finishes, you should only need three commands for the usual loop:
 
-**Artifact catalog** — `locker` is installed from crates.io and configured through `~/.config/artifact-catalog/config.yaml` to use a separate user-data root at `~/projects/personal/catalogs/artifact-catalog-data`. Keep that directory in its own Git repo if you want versioned catalog contents separate from the application source. The default backend stays `github-releases`; when you are ready to use AWS Public ECR, add `oci_repository` and switch `default_backend` to `oci-registry` in the same config file.
+```bash
+locker-pull
+payload-server linux
+new-target 192.168.50.10 DC01
+```
+
+**Payload serving** — `locker-pull` populates a small curated cache under `~/tools/payloads/{linux,windows}`, then `payload-server linux` or `payload-server windows 8000 443` serves it from Kali. The wrapper uses a typo-tolerant fuzzy HTTP server by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
+
+**Artifact catalog** — `locker` is installed from crates.io and configured through `~/.config/artifact-catalog/config.yaml` to use a local user-data root at `~/.local/share/artifact-catalog` and your public ECR mirror at `public.ecr.aws/o7l3z5i2/payload-collection-metadata`. The default workflow does not require a separate catalog-content Git repo; the registry is the published source of truth.
 
 **Command notes** — `opindex` is installed from PyPI and reads your dotfiles-managed config from `~/.config/opindex/config.yaml`.
 

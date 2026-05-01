@@ -218,13 +218,9 @@
           {
             "catalog_root": "{{ artifact_catalog_data_dir }}",
             "payloads_dir": "{{ payloads_dir }}",
-            "default_backend": "github-releases"
+            "default_backend": "{{ artifact_catalog_default_backend }}",
+            "oci_repository": "{{ artifact_catalog_oci_repository }}"
           }
-
-    - name: Check whether artifact-catalog data root is initialized
-      stat:
-        path: "{{ artifact_catalog_data_dir }}/manifests/artifacts.yaml"
-      register: artifact_catalog_initialized
 
     - name: Initialize artifact-catalog user data root
       command:
@@ -235,7 +231,6 @@
         XDG_CONFIG_HOME: "{{ ansible_facts['env']['HOME'] }}/.config"
         CARGO_HOME: "{{ rustup_home }}"
         RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
-      when: not artifact_catalog_initialized.stat.exists
 
     - name: Seed artifact-catalog data repo README
       copy:
@@ -243,16 +238,15 @@
         mode: '0644'
         force: false
         content: |
-          # artifact-catalog-data
+          # artifact-catalog
 
-          User-side manifests, checksums, and staged release assets for `artifact-catalog`.
+          Local manifests, checksums, and staged release assets for `artifact-catalog`.
 
-          This directory is intended to be a separate Git repository from the `artifact-catalog`
-          application source so the software and your catalog contents stay clearly separated.
+          This directory is local user state. The published artifacts live in OCI, so you do
+          not need a separate catalog-content repository for the default workflow.
 
-          The default backend remains GitHub Releases. If you later move your catalog mirror to
-          AWS Public ECR, set `default_backend` to `oci-registry` and add `oci_repository` in
-          `~/.config/artifact-catalog/config.yaml` instead of storing secrets here.
+          The default backend is OCI registry pull/push against the public ECR mirror configured
+          by Ansible in `~/.config/artifact-catalog/config.yaml`.
 
     # ── Clone repos ────────────────────────────────────────────────────────
     - name: Clone or update OSCP repos
@@ -263,10 +257,28 @@
       loop: "{{ oscp_repos }}"
 
     # ── Install OSCP-Automation scripts ────────────────────────────────────
-    - name: Install OSCP-Automation scripts via make
+    - name: Bootstrap OSCP-Automation via make
       command:
-        cmd: make install PREFIX="{{ ansible_facts['env']['HOME'] }}/.local"
+        cmd: make bootstrap PREFIX="{{ ansible_facts['env']['HOME'] }}/.local"
         chdir: "{{ oscp_dir }}/OSCP-Automation"
+
+    - name: Populate payload cache with locker-pull
+      command: "{{ local_bin_dir }}/locker-pull"
+      environment:
+        PATH: "{{ local_bin_dir }}:{{ cargo_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
+        CARGO_HOME: "{{ rustup_home }}"
+        RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
+
+    - name: Check payload-server status
+      command: "{{ local_bin_dir }}/payload-server status"
+      environment:
+        PATH: "{{ local_bin_dir }}:{{ cargo_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
+      register: payload_server_status
+      changed_when: false
+
+    - name: Show payload-server status
+      debug:
+        var: payload_server_status.stdout_lines
 
     # ── Shell config (bash/zsh) ────────────────────────────────────────────
     - name: Add ~/.local/bin to .profile PATH
@@ -426,7 +438,7 @@
           check scan
           check parse-ports
           check payload-server
-          check refresh-payloads
+          check locker-pull
           check responder
           check remmina
           check_any penelope penelope penelope.py
@@ -445,6 +457,8 @@
 
     - name: Run pentest command smoke test
       command: "{{ local_bin_dir }}/pentest-check"
+      environment:
+        PATH: "{{ local_bin_dir }}:{{ cargo_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
       register: pentest_check
       changed_when: false
       failed_when: false
