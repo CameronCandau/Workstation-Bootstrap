@@ -30,7 +30,7 @@
       amd64: amd64
       aarch64: arm64
       arm64: arm64
-    oras_arch: "{{ oras_arch_map[ansible_architecture] | default(ansible_architecture) }}"
+    oras_arch: "{{ oras_arch_map[ansible_facts['architecture']] | default(ansible_facts['architecture']) }}"
     oscp_repos:
       - name: OSCP-Methodology
         repo: "https://github.com/CameronCandau/OSCP-Methodology.git"
@@ -310,16 +310,28 @@
         CARGO_HOME: "{{ rustup_home }}"
         RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
 
+    - name: Check payload-server state file
+      stat:
+        path: "{{ ansible_facts['env']['HOME'] }}/.local/state/payload-server/state.json"
+      register: payload_server_state
+
     - name: Check payload-server status
       command: "{{ local_bin_dir }}/payload-server status"
       environment:
         PATH: "{{ local_bin_dir }}:{{ cargo_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
       register: payload_server_status
       changed_when: false
+      when: payload_server_state.stat.exists
+
+    - name: Note missing payload-server state
+      debug:
+        msg: "payload-server not started yet; state file missing, so status check skipped."
+      when: not payload_server_state.stat.exists
 
     - name: Show payload-server status
       debug:
         var: payload_server_status.stdout_lines
+      when: payload_server_state.stat.exists
 
     # ── Shell config (bash/zsh) ────────────────────────────────────────────
     - name: Add ~/.local/bin to .profile PATH
