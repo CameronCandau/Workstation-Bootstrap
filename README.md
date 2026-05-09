@@ -39,7 +39,7 @@ payload-server linux
 new-target 192.168.50.10 DC01
 ```
 
-**Payload serving** — `artifact-locker pull` populates a small curated cache under `~/tools/payloads/{linux,windows}`, then `payload-server linux` or `payload-server windows 8000 443` serves it from Kali. The built-in server uses typo-tolerant fuzzy matching by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
+**Payload serving** — `artifact-locker pull` populates a small curated flat cache under `~/tools/payloads/{linux,windows}`, then `payload-server linux` or `payload-server windows 8000 443` serves it from Kali. The built-in server uses typo-tolerant fuzzy matching by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
 
 **Artifact catalog** — `artifact-locker` is installed with `pipx`, initialized at `~/.local/share/artifact-locker`, and configured there through `config.json` to use `~/tools/payloads` as the local artifact directory and `public.ecr.aws/o7l3z5i2/artifact-locker` as the OCI repository. The default workflow does not require a separate artifact Git repo; the registry is the published source of truth.
 

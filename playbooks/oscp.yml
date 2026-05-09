@@ -11,7 +11,7 @@
 #   - artifact-locker   (pipx-installed OCI catalog CLI plus managed repo config)
 #   - payload-server    (pipx-installed payload transfer helper)
 #   - opindex           (pipx-installed command-note indexer)
-#   - payload folders   (generic linux/windows payload staging tree)
+#   - payload folders   (flat linux/windows payload staging tree)
 #   - penelope         (shell handler via pipx, plus ~/tools/penelope.py fallback)
 #   - pentest-check    (quick command availability smoke test)
 #
@@ -99,13 +99,40 @@
         - "{{ payloads_dir }}"
         - "{{ payloads_dir }}/linux"
         - "{{ payloads_dir }}/windows"
-        - "{{ payloads_dir }}/windows/bin"
-        - "{{ payloads_dir }}/windows/scripts"
-        - "{{ payloads_dir }}/windows/webshells"
         - "{{ local_bin_dir }}"
         - "{{ ansible_facts['env']['HOME'] }}/logs"
         - "{{ ansible_facts['env']['HOME'] }}/.cache"
         - "{{ artifact_locker_data_dir }}"
+
+    - name: Check whether legacy payload subdirectories still contain files
+      command: "find {{ item }} -mindepth 1 -print -quit"
+      register: legacy_payload_dir_contents
+      changed_when: false
+      failed_when: false
+      loop:
+        - "{{ payloads_dir }}/windows/bin"
+        - "{{ payloads_dir }}/windows/scripts"
+        - "{{ payloads_dir }}/windows/webshells"
+
+    - name: Remove empty legacy payload subdirectories
+      file:
+        path: "{{ item.item }}"
+        state: absent
+      loop: "{{ legacy_payload_dir_contents.results }}"
+      when:
+        - item.rc == 0
+        - item.stdout == ""
+
+    - name: Warn about non-empty legacy payload subdirectories
+      debug:
+        msg: >-
+          Legacy payload directory {{ item.item }} still has content and was left in place.
+          Flatten or rename those files into {{ payloads_dir }}/windows/ if you want a fully
+          flat local payload tree.
+      loop: "{{ legacy_payload_dir_contents.results }}"
+      when:
+        - item.rc == 0
+        - item.stdout != ""
 
     # ── System packages ────────────────────────────────────────────────────
     - name: Update apt cache for OSCP packages
