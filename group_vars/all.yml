@@ -23,6 +23,5 @@ rustup_profile: minimal
 
 # Published pentest tooling defaults
 payloads_dir: "{{ ansible_facts['env']['HOME'] }}/tools/payloads"
-artifact_catalog_data_dir: "{{ ansible_facts['env']['HOME'] }}/.local/share/artifact-catalog"
-artifact_catalog_default_backend: oci-registry
-artifact_catalog_oci_repository: "public.ecr.aws/o7l3z5i2/payload-collection-metadata"
+artifact_locker_data_dir: "{{ ansible_facts['env']['HOME'] }}/.local/share/artifact-locker"
+artifact_locker_oci_repository: "public.ecr.aws/o7l3z5i2/artifact-locker"

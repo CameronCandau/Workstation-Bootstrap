@@ -22,7 +22,7 @@ ansible-playbook kali_vm.yml -K
 | Playbook | What it installs |
 |---|---|
 | `kali_vm.yml` | **Default.** General utils + dev tools + Rust toolchain + desktop (i3, Brave, WezTerm, VSCode, fonts) + OSCP stack |
-| `playbooks/oscp.yml` | OSCP stack only (core lab tooling, OSCP-Methodology, OSCP-Automation, artifact-catalog, payload-server, opindex, direnv, tmux, payload folders, Penelope, pentest-check) |
+| `playbooks/oscp.yml` | OSCP stack only (core lab tooling, OSCP-Methodology, OSCP-Automation, artifact-locker, payload-server, opindex, direnv, tmux, payload folders, Penelope, pentest-check) |
 | `playbooks/rust.yml` | Rustup-managed Rust toolchain for user-scoped Cargo installs |
 
 ## After Install
@@ -34,14 +34,14 @@ ansible-playbook kali_vm.yml -K
 **Day 1** — after the playbook finishes, you should only need three commands for the usual loop:
 
 ```bash
-locker-pull
+artifact-locker pull
 payload-server linux
 new-target 192.168.50.10 DC01
 ```
 
-**Payload serving** — `locker-pull` populates a small curated cache under `~/tools/payloads/{linux,windows}`, then `payload-server linux` or `payload-server windows 8000 443` serves it from Kali. The wrapper uses a typo-tolerant fuzzy HTTP server by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
+**Payload serving** — `artifact-locker pull` populates a small curated cache under `~/tools/payloads/{linux,windows}`, then `payload-server linux` or `payload-server windows 8000 443` serves it from Kali. The built-in server uses typo-tolerant fuzzy matching by default, can start Impacket SMB with `--smb`, and can use `updog` with `--updog` when uploads/TLS/basic auth are useful.
 
-**Artifact catalog** — `locker` is installed from crates.io and configured through `~/.config/artifact-catalog/config.yaml` to use a local user-data root at `~/.local/share/artifact-catalog` and your public ECR mirror at `public.ecr.aws/o7l3z5i2/payload-collection-metadata`. The default workflow does not require a separate catalog-content Git repo; the registry is the published source of truth.
+**Artifact catalog** — `artifact-locker` is installed with `pipx`, initialized at `~/.local/share/artifact-locker`, and configured there through `config.json` to use `~/tools/payloads` as the local artifact directory and `public.ecr.aws/o7l3z5i2/artifact-locker` as the OCI repository. The default workflow does not require a separate artifact Git repo; the registry is the published source of truth.
 
 **Command notes** — `opindex` is installed from PyPI and reads your dotfiles-managed config from `~/.config/opindex/config.yaml`.
 
@@ -49,7 +49,7 @@ new-target 192.168.50.10 DC01
 
 **Optional terminal logging** — run `term-log <target>` for a shell transcript, or use `Ctrl+a P` in tmux to toggle output logging for the current pane.
 
-**Pentest smoke test** — run `pentest-check` after provisioning to verify the main lab/exam commands are present (`nmap`, `autorecon`, `ffuf`, `netexec`, `evil-winrm`, `locker`, `payload-server`, `opindex`, Impacket helpers, and the local automation scripts).
+**Pentest smoke test** — run `pentest-check` after provisioning to verify the main lab/exam commands are present (`nmap`, `autorecon`, `ffuf`, `netexec`, `evil-winrm`, `artifact-locker`, `payload-server`, `opindex`, Impacket helpers, and the local automation scripts).
 
 ## Standalone playbooks
 

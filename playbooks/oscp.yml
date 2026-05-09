@@ -8,7 +8,7 @@
 #   - tmux             (plain terminal multiplexing, no plugins required)
 #   - OSCP-Methodology (command reference markdown files)
 #   - OSCP-Automation  (workspace init scripts, scan automation)
-#   - artifact-catalog  (cargo-installed locker CLI plus user catalog config)
+#   - artifact-locker   (pipx-installed OCI catalog CLI plus managed repo config)
 #   - payload-server    (pipx-installed payload transfer helper)
 #   - opindex           (pipx-installed command-note indexer)
 #   - payload folders   (generic linux/windows payload staging tree)
@@ -23,7 +23,6 @@
   vars:
     tools_dir: "{{ ansible_facts['env']['HOME'] }}/tools"
     local_bin_dir: "{{ ansible_facts['env']['HOME'] }}/.local/bin"
-    artifact_catalog_config_dir: "{{ ansible_facts['env']['HOME'] }}/.config/artifact-catalog"
     oras_version: "1.3.2"
     oras_arch_map:
       x86_64: amd64
@@ -106,12 +105,7 @@
         - "{{ local_bin_dir }}"
         - "{{ ansible_facts['env']['HOME'] }}/logs"
         - "{{ ansible_facts['env']['HOME'] }}/.cache"
-        - "{{ artifact_catalog_config_dir }}"
-        - "{{ artifact_catalog_data_dir }}"
-        - "{{ artifact_catalog_data_dir }}/manifests"
-        - "{{ artifact_catalog_data_dir }}/checksums"
-        - "{{ artifact_catalog_data_dir }}/staging"
-        - "{{ artifact_catalog_data_dir }}/staging/release-assets"
+        - "{{ artifact_locker_data_dir }}"
 
     # ── System packages ────────────────────────────────────────────────────
     - name: Update apt cache for OSCP packages
@@ -146,9 +140,6 @@
         msg: "Optional OSCP package not available from APT: {{ item.item }}"
       loop: "{{ oscp_optional_package_checks.results }}"
       when: item.rc != 0
-
-    - name: Install rustup and cargo
-      include_tasks: ../tasks/rustup.yml
 
     - name: Install updog HTTP file server with pipx
       command: pipx install updog
@@ -206,54 +197,49 @@
       changed_when: "'upgraded package' in opindex_upgrade.stdout or 'upgraded package' in opindex_upgrade.stderr"
       when: opindex_exists.stat.exists
 
-    - name: Install artifact-catalog with cargo
-      command:
-        argv:
-          - "{{ cargo_bin_dir }}/cargo"
-          - install
-          - artifact-catalog
-          - --locked
-      environment:
-        CARGO_HOME: "{{ rustup_home }}"
-        RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
+    - name: Check whether artifact-locker is already installed with pipx
+      stat:
+        path: "{{ local_bin_dir }}/artifact-locker"
+      register: artifact_locker_exists
 
-    - name: Write artifact-catalog user config
+    - name: Install artifact-locker with pipx
+      command: pipx install artifact-locker
+      when: not artifact_locker_exists.stat.exists
+
+    - name: Upgrade artifact-locker with pipx
+      command: pipx upgrade artifact-locker
+      register: artifact_locker_upgrade
+      changed_when: "'upgraded package' in artifact_locker_upgrade.stdout or 'upgraded package' in artifact_locker_upgrade.stderr"
+      when: artifact_locker_exists.stat.exists
+
+    - name: Initialize artifact-locker managed repo
+      command: "{{ local_bin_dir }}/artifact-locker init"
+
+    - name: Write artifact-locker managed repo config
       copy:
-        dest: "{{ artifact_catalog_config_dir }}/config.yaml"
+        dest: "{{ artifact_locker_data_dir }}/config.json"
         mode: '0644'
         content: |
           {
-            "catalog_root": "{{ artifact_catalog_data_dir }}",
-            "payloads_dir": "{{ payloads_dir }}",
-            "default_backend": "{{ artifact_catalog_default_backend }}",
-            "oci_repository": "{{ artifact_catalog_oci_repository }}"
+            "local_artifact_dir": "{{ payloads_dir }}",
+            "oci_repository": "{{ artifact_locker_oci_repository }}"
           }
 
-    - name: Initialize artifact-catalog user data root
-      command:
-        argv:
-          - "{{ cargo_bin_dir }}/locker"
-          - init
-      environment:
-        XDG_CONFIG_HOME: "{{ ansible_facts['env']['HOME'] }}/.config"
-        CARGO_HOME: "{{ rustup_home }}"
-        RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
-
-    - name: Seed artifact-catalog data repo README
+    - name: Seed artifact-locker data repo README
       copy:
-        dest: "{{ artifact_catalog_data_dir }}/README.md"
+        dest: "{{ artifact_locker_data_dir }}/README.md"
         mode: '0644'
         force: false
         content: |
-          # artifact-catalog
+          # artifact-locker
 
-          Local manifests, checksums, and staged release assets for `artifact-catalog`.
+          Local manifests, checksums, staged release assets, and pull state for `artifact-locker`.
 
           This directory is local user state. The published artifacts live in OCI, so you do
-          not need a separate catalog-content repository for the default workflow.
+          not need a separate artifact Git repository for the default workflow.
 
-          The default backend is OCI registry pull/push against the public ECR mirror configured
-          by Ansible in `~/.config/artifact-catalog/config.yaml`.
+          Ansible configures `config.json` here to use `~/tools/payloads` as the local artifact
+          directory and `public.ecr.aws/o7l3z5i2/artifact-locker` as the OCI repository.
 
     - name: Check for oras
       stat:
@@ -298,17 +284,15 @@
       loop: "{{ oscp_repos }}"
 
     # ── Install OSCP-Automation scripts ────────────────────────────────────
-    - name: Bootstrap OSCP-Automation via make
+    - name: Install OSCP-Automation shell helpers via make
       command:
-        cmd: make bootstrap PREFIX="{{ ansible_facts['env']['HOME'] }}/.local"
+        cmd: make install PREFIX="{{ ansible_facts['env']['HOME'] }}/.local"
         chdir: "{{ oscp_dir }}/OSCP-Automation"
 
-    - name: Populate payload cache with locker-pull
-      command: "{{ local_bin_dir }}/locker-pull"
+    - name: Populate payload cache with artifact-locker pull
+      command: "{{ local_bin_dir }}/artifact-locker pull"
       environment:
-        PATH: "{{ local_bin_dir }}:{{ cargo_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
-        CARGO_HOME: "{{ rustup_home }}"
-        RUSTUP_HOME: "{{ ansible_facts['env']['HOME'] }}/.rustup"
+        PATH: "{{ local_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
 
     - name: Check payload-server state file
       stat:
@@ -318,7 +302,7 @@
     - name: Check payload-server status
       command: "{{ local_bin_dir }}/payload-server status"
       environment:
-        PATH: "{{ local_bin_dir }}:{{ cargo_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
+        PATH: "{{ local_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
       register: payload_server_status
       changed_when: false
       when: payload_server_state.stat.exists
@@ -485,13 +469,12 @@
           check proxychains4
           check tmux
           check direnv
-          check locker
+          check artifact-locker
           check opindex
           check new-target
           check scan
           check parse-ports
           check payload-server
-          check locker-pull
           check responder
           check remmina
           check_any penelope penelope penelope.py
@@ -511,7 +494,7 @@
     - name: Run pentest command smoke test
       command: "{{ local_bin_dir }}/pentest-check"
       environment:
-        PATH: "{{ local_bin_dir }}:{{ cargo_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
+        PATH: "{{ local_bin_dir }}:{{ ansible_facts['env']['PATH'] }}"
       register: pentest_check
       changed_when: false
       failed_when: false
